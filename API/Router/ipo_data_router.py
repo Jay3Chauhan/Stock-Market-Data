@@ -516,7 +516,7 @@ async def refresh_investorgain_ipo_data() -> Dict[str, Any]:
     """
     try:
         controller = NSEInvestorGainIPOController()
-        result = await controller.scrap_investorgain_ipo_data()
+        result = controller.scrape_investorgain_ipo_data()
         return create_success_response_n({
             "endpoint": "ipo/refresh/investorgain",
             "message": "InvestorGain IPO data refreshed successfully",
@@ -541,7 +541,7 @@ async def refresh_zerodha_investorgain_matching() -> Dict[str, Any]:
     """
     try:
         matcher = UltimateIPOMatcher()
-        result = matcher.run_full_pipeline()
+        result = matcher.run_ultimate_matching()
         return create_success_response_n({
             "endpoint": "ipo/refresh/match-zerodha",
             "message": "Zerodha-InvestorGain matching completed successfully",
@@ -570,7 +570,7 @@ async def refresh_all_ipo_data() -> Dict[str, Any]:
     try:
         logger.info("Refreshing InvestorGain IPO data...")
         controller = NSEInvestorGainIPOController()
-        result = await controller.scrap_investorgain_ipo_data()
+        result = controller.scrape_investorgain_ipo_data()
         results["investorgain"] = {"status": "success", "records": len(result) if isinstance(result, list) else (1 if result else 0)}
         logger.info("InvestorGain IPO data refreshed successfully")
     except Exception as e:
@@ -582,7 +582,7 @@ async def refresh_all_ipo_data() -> Dict[str, Any]:
     try:
         logger.info("Running Zerodha-InvestorGain matching...")
         matcher = UltimateIPOMatcher()
-        result = matcher.run_full_pipeline()
+        result = matcher.run_ultimate_matching()
         results["zerodha-matching"] = {"status": "success", "message": "Matching completed"}
         logger.info("Zerodha-InvestorGain matching completed")
     except Exception as e:
