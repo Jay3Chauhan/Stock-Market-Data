@@ -566,7 +566,7 @@ async def refresh_gainers_losers() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/gainers-losers",
             "message": "Gainers/Losers data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing gainers/losers: {e}")
@@ -582,7 +582,7 @@ async def refresh_52week_high_low() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/52week-high-low",
             "message": "52-week high/low data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing 52-week data: {e}")
@@ -598,7 +598,7 @@ async def refresh_indices() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/indices",
             "message": "Indices data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing indices: {e}")
@@ -614,7 +614,7 @@ async def refresh_advances_declines() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/advances-declines",
             "message": "Advances/Declines data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing advances/declines: {e}")
@@ -630,7 +630,7 @@ async def refresh_most_active_equities() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/most-active-equities",
             "message": "Most active equities data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing most active equities: {e}")
@@ -646,7 +646,7 @@ async def refresh_most_active_contracts() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/most-active-contracts",
             "message": "Most active contracts data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing most active contracts: {e}")
@@ -662,7 +662,7 @@ async def refresh_most_active_underlying() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/most-active-underlying",
             "message": "Most active underlying data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing most active underlying: {e}")
@@ -678,7 +678,7 @@ async def refresh_price_band_hitters() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/price-band-hitters",
             "message": "Price band hitters data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing price band hitters: {e}")
@@ -694,7 +694,7 @@ async def refresh_large_deals() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/large-deals",
             "message": "Large deals data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing large deals: {e}")
@@ -710,7 +710,7 @@ async def refresh_new_listings() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/new-listings",
             "message": "New listings data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing new listings: {e}")
@@ -726,7 +726,7 @@ async def refresh_recent_listings() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/recent-listings",
             "message": "Recent listings data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing recent listings: {e}")
@@ -742,7 +742,7 @@ async def refresh_forthcoming_listings() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/forthcoming-listings",
             "message": "Forthcoming listings data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing forthcoming listings: {e}")
@@ -758,7 +758,7 @@ async def refresh_special_preopen_listings() -> Dict[str, Any]:
         return create_success_response_n({
             "endpoint": "refresh/special-preopen-listings",
             "message": "Special pre-open listings data refreshed successfully",
-            "result": result
+            "result": convert_object_ids(result) if result else None
         })
     except Exception as e:
         logger.error(f"Error refreshing special pre-open listings: {e}")
@@ -796,7 +796,7 @@ async def refresh_all_data() -> Dict[str, Any]:
             controller = controller_class()
             method = getattr(controller, method_name)
             result = await method()
-            results[name] = {"status": "success", "result": result}
+            results[name] = {"status": "success", "records": len(result) if isinstance(result, list) else (1 if result else 0)}
             logger.info(f"Refreshed {name} successfully")
         except Exception as e:
             results[name] = {"status": "error", "error": str(e)}
