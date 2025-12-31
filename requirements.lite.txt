@@ -38,6 +38,9 @@ colorlog==6.9.0
 pytz==2025.2
 certifi>=2023.7.22
 
+# Retry logic
+tenacity>=8.2.0
+
 # Async Support
 anyio==4.9.0
 aiofiles==24.1.0
