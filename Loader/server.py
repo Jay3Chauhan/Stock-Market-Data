@@ -124,9 +124,9 @@ All endpoints return standardized responses:
         ]
     )
     
-    # Add server info
+    # Add server info - use relative URL so it works from any host
     openapi_schema["servers"] = [
-        {"url": "http://localhost:1020", "description": "Local Development"},
+        {"url": "/", "description": "Current Server"},
     ]
     
     app.openapi_schema = openapi_schema
