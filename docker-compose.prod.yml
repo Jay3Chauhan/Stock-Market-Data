@@ -1,0 +1,81 @@
+# NSE Scraper - Production Docker Compose
+# For Oracle Cloud Always Free Tier with MongoDB Atlas
+
+version: '3.8'
+
+services:
+  nse-scraper:
+    container_name: nse-scraper
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    
+    # Environment variables (override config.ini)
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      # MongoDB Atlas connection (set in .env file)
+      - MONGO_URI=${MONGO_URI:-mongodb://localhost:27017}
+      - MONGO_DB=${MONGO_DB:-NSE_SCRAPER}
+      - MONGO_DB_MASTER=${MONGO_DB_MASTER:-GETMASTERDATA}
+      # Server configuration
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=1020
+      - DEBUG=false
+      # Scraping configuration
+      - DATA_COLLECTION_INTERVAL=${DATA_COLLECTION_INTERVAL:-5}
+      - COOKIE_REFRESH_INTERVAL=${COOKIE_REFRESH_INTERVAL:-60}
+    
+    # Port mapping
+    ports:
+      - "1020:1020"
+    
+    # Volume mounts
+    volumes:
+      # Persist logs
+      - ./Logs:/app/Logs
+      # Persist output files
+      - ./output:/app/output
+      # Persist IPO data
+      - ./ipo_data:/app/ipo_data
+      # Production config (create from config.ini)
+      - ./config.production.ini:/app/config.ini:ro
+      # Cookie cache (optional - for faster restarts)
+      - nse_cookies:/app/.cookies
+    
+    # Resource limits (fits within Oracle Free Tier)
+    deploy:
+      resources:
+        limits:
+          cpus: '3'
+          memory: 20G
+        reservations:
+          cpus: '1'
+          memory: 4G
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1020/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+# Named volumes for persistent data
+volumes:
+  nse_cookies:
+    driver: local
+
+# Network configuration
+networks:
+  default:
+    name: nse-network
+    driver: bridge

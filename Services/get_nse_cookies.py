@@ -74,10 +74,10 @@ class NSECookieService:
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                             "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/139.0.0.0 Safari/537.36")
+                            "Chrome/143.0.0.0 Safari/537.36")
 
-        # ✅ Force matching ChromeDriver version for Chrome 139
-        return uc.Chrome(options=options, version_main=139, use_subprocess=True)
+        # ✅ Auto-detect Chrome version instead of hardcoding
+        return uc.Chrome(options=options, use_subprocess=True)
 
     def get_nse_cookies(self) -> Optional[Dict[str, str]]:
         try:

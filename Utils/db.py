@@ -1034,6 +1034,100 @@ class DatabaseManager:
                 "message": f"SQL Server error: {str(e)}"
             }
 
-
+    # ==================== DATA RETRIEVAL METHODS ====================
+    
+    def get_collection_data(self, collection_name: str, query: Dict = None, limit: int = None, 
+                            sort_by: str = None, sort_order: int = -1) -> List[Dict[str, Any]]:
+        """
+        Retrieves data from a MongoDB collection.
+        
+        Args:
+            collection_name: Name of the collection to query
+            query: Optional filter query (default: {})
+            limit: Optional limit on number of results
+            sort_by: Optional field to sort by
+            sort_order: Sort order (-1 for descending, 1 for ascending)
+            
+        Returns:
+            List of documents from the collection
+        """
+        if self.mongo_db is None:
+            logger.error("MongoDB connection is not initialized.")
+            return []
+        
+        try:
+            collection = self.mongo_db[collection_name]
+            query = query or {}
+            
+            cursor = collection.find(query)
+            
+            if sort_by:
+                cursor = cursor.sort(sort_by, sort_order)
+            
+            if limit:
+                cursor = cursor.limit(limit)
+            
+            results = list(cursor)
+            
+            # Convert ObjectId to string for JSON serialization
+            for doc in results:
+                if '_id' in doc:
+                    doc['_id'] = str(doc['_id'])
+            
+            logger.info(f"Retrieved {len(results)} documents from {collection_name}")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error retrieving data from {collection_name}: {str(e)}")
+            return []
+    
+    def get_latest_data(self, collection_name: str, timestamp_field: str = "timestamp") -> List[Dict[str, Any]]:
+        """
+        Retrieves the latest data from a collection based on timestamp.
+        Used for cron-job data that replaces all records each run.
+        
+        Args:
+            collection_name: Name of the collection
+            timestamp_field: Field to determine latest records
+            
+        Returns:
+            List of latest documents
+        """
+        return self.get_collection_data(
+            collection_name=collection_name,
+            sort_by=timestamp_field,
+            sort_order=-1
+        )
+    
+    def get_ipo_data(self, ipo_id: str = None, status: str = None, 
+                     year: int = None, limit: int = None) -> List[Dict[str, Any]]:
+        """
+        Retrieves IPO data with optional filters.
+        
+        Args:
+            ipo_id: Optional specific IPO ID
+            status: Optional IPO status filter
+            year: Optional year filter
+            limit: Optional limit on results
+            
+        Returns:
+            List of IPO documents
+        """
+        query = {}
+        
+        if ipo_id:
+            query["ipoId"] = ipo_id
+        if status:
+            query["apiIpoStatusFormatted"] = status
+        if year:
+            query["apiIpoYear"] = str(year)
+        
+        return self.get_collection_data(
+            collection_name="investorgain_ipo_data_v1",
+            query=query,
+            limit=limit,
+            sort_by="lastUpdatedDb",
+            sort_order=-1
+        )
 
 

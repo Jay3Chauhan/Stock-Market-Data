@@ -1,0 +1,100 @@
+# NSE Scraper - Docker Compose for Local Development
+# Includes local MongoDB container
+
+version: '3.8'
+
+services:
+  # MongoDB container for local development
+  mongodb:
+    image: mongo:7.0
+    container_name: nse-mongodb
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=NSE_SCRAPER
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # NSE Scraper application
+  nse-scraper:
+    container_name: nse-scraper
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    
+    environment:
+      - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
+      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_DB=NSE_SCRAPER
+      - MONGO_DB_MASTER=GETMASTERDATA
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=1020
+      - DEBUG=true
+      - DATA_COLLECTION_INTERVAL=1
+      - COOKIE_REFRESH_INTERVAL=60
+    
+    ports:
+      - "1020:1020"
+    
+    volumes:
+      - ./Logs:/app/Logs
+      - ./output:/app/output
+      - ./ipo_data:/app/ipo_data
+      - ./config.ini:/app/config.ini:ro
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1020/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # MongoDB Express for database management (optional)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: nse-mongo-express
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
+    ports:
+      - "8081:8081"
+    profiles:
+      - dev-tools
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+
+networks:
+  default:
+    name: nse-network
+    driver: bridge
