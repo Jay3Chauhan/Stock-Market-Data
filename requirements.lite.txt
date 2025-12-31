@@ -38,6 +38,9 @@ colorlog==6.9.0
 pytz==2025.2
 certifi>=2023.7.22
 
+# Compression (for API responses)
+Brotli>=1.1.0
+
 # Retry logic
 tenacity>=8.2.0
 
