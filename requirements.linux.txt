@@ -1,0 +1,71 @@
+# NSE Scraper - Production Requirements (Linux/Docker compatible)
+# This file excludes Windows-only packages
+
+# Core Web Framework
+fastapi==0.116.1
+uvicorn==0.35.0
+starlette==0.46.2
+python-multipart==0.0.20
+
+# HTTP Clients
+requests>=2.31.0
+httpx==0.28.1
+aiohttp==3.12.14
+urllib3>=2.5.0
+
+# Web Scraping
+beautifulsoup4==4.13.4
+selenium==4.34.2
+undetected-chromedriver==3.5.5
+fake-useragent==2.2.0
+lxml==6.0.0
+
+# Database
+pymongo==4.14.0
+dnspython==2.7.0
+
+# Scheduling
+schedule==1.2.2
+APScheduler==3.11.0
+
+# Data Processing
+pandas==2.3.1
+numpy==2.3.1
+python-dateutil==2.9.0.post0
+
+# Configuration
+python-dotenv==1.1.1
+PyYAML==6.0.2
+
+# Logging
+colorlog==6.9.0
+python-json-logger==3.3.0
+
+# Utilities
+pytz==2025.2
+certifi>=2023.7.22
+charset-normalizer==3.4.2
+idna==3.10
+
+# Async Support
+anyio==4.9.0
+aiofiles==24.1.0
+
+# Data Validation
+pydantic==2.11.7
+pydantic_core==2.33.2
+annotated-types==0.7.0
+
+# String Matching (for IPO matching)
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.27.1
+thefuzz==0.22.1
+RapidFuzz==3.13.0
+
+# Excel Support (optional)
+openpyxl==3.1.5
+xlsxwriter==3.2.5
+
+# Timezone
+tzdata==2025.2
+tzlocal==5.3.1

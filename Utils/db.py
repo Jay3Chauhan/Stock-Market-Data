@@ -1,5 +1,10 @@
 import pymongo
-import pyodbc
+try:
+    import pyodbc
+    PYODBC_AVAILABLE = True
+except ImportError:
+    pyodbc = None
+    PYODBC_AVAILABLE = False
 import json
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any, Union
@@ -132,6 +137,10 @@ class DatabaseManager:
     
     def _create_sql_server_connection(self):
         """Create SQL Server connection"""
+        if not PYODBC_AVAILABLE:
+            logger.warning("pyodbc not available - SQL Server features disabled (Linux/Docker environment)")
+            return False
+            
         try:
             connection_string = (
                 f"DRIVER={{{self.sql_server_config['driver']}}};"

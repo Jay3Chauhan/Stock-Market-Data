@@ -59,8 +59,8 @@ ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 # Create app directory
 WORKDIR /app
 
-# Copy requirements first for caching
-COPY requirements.txt .
+# Copy requirements first for caching (use Linux-compatible requirements)
+COPY requirements.linux.txt ./requirements.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
