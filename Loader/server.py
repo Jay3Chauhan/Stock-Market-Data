@@ -120,6 +120,10 @@ All endpoints return standardized responses:
             {
                 "name": "System",
                 "description": "API health check and system status"
+            },
+            {
+                "name": "Manual Refresh",
+                "description": "Manually trigger data scraping for any endpoint. Use POST requests to refresh data on-demand."
             }
         ]
     )
