@@ -223,6 +223,11 @@ def apiserver() -> FastAPI:
             }
         }
 
+    @app.get("/health", tags=["System"])
+    async def simple_health_check():
+        """Simple health check for Docker/load balancers."""
+        return {"status": "ok", "message": "NSE Scraper is running"}
+
     @app.get("/meta/health", tags=["System"])
     async def meta_health_check():
         """
