@@ -493,3 +493,106 @@ async def search_ipos(
     except Exception as e:
         logger.error(f"Error searching IPOs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== MANUAL REFRESH ENDPOINTS ====================
+
+from API.Controller.scrap_investorgain_ipo_data import NSEInvestorGainIPOController
+from Utils.ipo_zerodha_and_investorgain_matcher import UltimateIPOMatcher
+
+
+@router.post("/refresh/investorgain", tags=["IPO Manual Refresh"])
+async def refresh_investorgain_ipo_data() -> Dict[str, Any]:
+    """
+    Manually trigger scraping of IPO data from InvestorGain.
+    
+    This scrapes comprehensive IPO data including:
+    - GMP (Grey Market Premium)
+    - Subscription status
+    - Company details
+    - Listing performance
+    
+    ⚠️ Note: This may take a few minutes to complete.
+    """
+    try:
+        controller = NSEInvestorGainIPOController()
+        result = await controller.scrap_investorgain_ipo_data()
+        return create_success_response_n({
+            "endpoint": "ipo/refresh/investorgain",
+            "message": "InvestorGain IPO data refreshed successfully",
+            "result": convert_object_ids(result) if result else None
+        })
+    except Exception as e:
+        logger.error(f"Error refreshing InvestorGain IPO data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/refresh/match-zerodha", tags=["IPO Manual Refresh"])
+async def refresh_zerodha_investorgain_matching() -> Dict[str, Any]:
+    """
+    Manually trigger Zerodha-InvestorGain IPO data matching.
+    
+    This matches IPO data with Zerodha's IPO information for:
+    - Enhanced company details
+    - Symbol mapping
+    - Additional metadata
+    
+    ⚠️ Note: This may take a few minutes to complete.
+    """
+    try:
+        matcher = UltimateIPOMatcher()
+        result = matcher.run_full_pipeline()
+        return create_success_response_n({
+            "endpoint": "ipo/refresh/match-zerodha",
+            "message": "Zerodha-InvestorGain matching completed successfully",
+            "result": convert_object_ids(result) if result else {"status": "completed"}
+        })
+    except Exception as e:
+        logger.error(f"Error in Zerodha-InvestorGain matching: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/refresh/all", tags=["IPO Manual Refresh"])
+async def refresh_all_ipo_data() -> Dict[str, Any]:
+    """
+    Manually trigger refresh of ALL IPO data sources.
+    
+    This runs:
+    1. InvestorGain IPO scraping
+    2. Zerodha-InvestorGain matching
+    
+    ⚠️ Warning: This may take several minutes to complete.
+    """
+    results = {}
+    errors = []
+    
+    # Step 1: Scrape InvestorGain data
+    try:
+        logger.info("Refreshing InvestorGain IPO data...")
+        controller = NSEInvestorGainIPOController()
+        result = await controller.scrap_investorgain_ipo_data()
+        results["investorgain"] = {"status": "success", "records": len(result) if isinstance(result, list) else (1 if result else 0)}
+        logger.info("InvestorGain IPO data refreshed successfully")
+    except Exception as e:
+        results["investorgain"] = {"status": "error", "error": str(e)}
+        errors.append("investorgain")
+        logger.error(f"Error refreshing InvestorGain data: {e}")
+    
+    # Step 2: Run Zerodha matching
+    try:
+        logger.info("Running Zerodha-InvestorGain matching...")
+        matcher = UltimateIPOMatcher()
+        result = matcher.run_full_pipeline()
+        results["zerodha-matching"] = {"status": "success", "message": "Matching completed"}
+        logger.info("Zerodha-InvestorGain matching completed")
+    except Exception as e:
+        results["zerodha-matching"] = {"status": "error", "error": str(e)}
+        errors.append("zerodha-matching")
+        logger.error(f"Error in Zerodha matching: {e}")
+    
+    return create_success_response_n({
+        "endpoint": "ipo/refresh/all",
+        "message": f"IPO refresh completed. {2 - len(errors)}/2 succeeded.",
+        "results": results,
+        "errors": errors
+    })

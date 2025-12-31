@@ -124,6 +124,10 @@ All endpoints return standardized responses:
             {
                 "name": "Manual Refresh",
                 "description": "Manually trigger data scraping for any endpoint. Use POST requests to refresh data on-demand."
+            },
+            {
+                "name": "IPO Manual Refresh",
+                "description": "Manually trigger IPO data scraping from InvestorGain and Zerodha matching."
             }
         ]
     )
