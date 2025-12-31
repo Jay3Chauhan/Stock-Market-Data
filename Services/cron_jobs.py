@@ -16,10 +16,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Utils.logger import get_logger
 from Utils.db import DatabaseManager
+from Utils.config_reader import configure
 from Services.get_nse_cookies import get_nse_cookies
 from Constant.general import CRON_INTERVALS
 from Utils.utilities_functions import is_market_open
 from Utils.ipo_zerodha_and_investorgain_matcher import UltimateIPOMatcher
+
+# Check if we should force run jobs regardless of market hours
+FORCE_RUN_JOBS = configure.get('SCRAPING', 'FORCE_RUN_JOBS', fallback='False').lower() == 'true'
 
 
 # Import controllers
@@ -106,7 +110,7 @@ class CronJobManager:
         # )
 
     def run_cron_jobs(self):
-        """Run cron jobs dynamically. IPO job runs always, others only if market is open."""
+        """Run cron jobs dynamically. IPO job runs always, others only if market is open (or FORCE_RUN_JOBS=True)."""
         try:
             ipo_job_scheduled = False  # Track IPO job separately
 
@@ -124,9 +128,15 @@ class CronJobManager:
                     
                     ipo_job_scheduled = True
 
-                if is_market_open():
+                # Check market status or force run flag
+                should_run = FORCE_RUN_JOBS or is_market_open()
+                
+                if FORCE_RUN_JOBS and not self.jobs_scheduled:
+                    logger.info("FORCE_RUN_JOBS is enabled - scheduling jobs regardless of market hours")
+                
+                if should_run:
                     if not self.jobs_scheduled:
-                        logger.info("Market is OPEN. Scheduling market-based cron jobs...")
+                        logger.info("Market is OPEN (or FORCE_RUN_JOBS=True). Scheduling market-based cron jobs...")
                         self.schedule_jobs()
                         self.jobs_scheduled = True
                 else:
