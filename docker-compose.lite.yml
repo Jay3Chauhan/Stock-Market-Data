@@ -2,8 +2,6 @@
 # For Oracle E2.Micro (1 OCPU, 1GB RAM) or similar small VMs
 # Uses lighter approach WITHOUT Chrome/Selenium
 
-version: '3.8'
-
 services:
   nse-scraper:
     container_name: nse-scraper
@@ -33,7 +31,7 @@ services:
       - ./Logs:/app/Logs
       - ./output:/app/output
       - ./ipo_data:/app/ipo_data
-      - ./config.production.ini:/app/config.ini:ro
+      - ./config.ini:/app/config.ini:ro
       # Pre-generated cookies (upload from local machine)
       - ./nse_cookies.json:/app/nse_cookies.json:ro
     
