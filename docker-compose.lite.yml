@@ -1,5 +1,6 @@
-# NSE Scraper - Production Docker Compose
-# For Oracle Cloud Always Free Tier with MongoDB Atlas
+# NSE Scraper - Lightweight Docker Compose for Micro VMs
+# For Oracle E2.Micro (1 OCPU, 1GB RAM) or similar small VMs
+# Uses lighter approach WITHOUT Chrome/Selenium
 
 version: '3.8'
 
@@ -8,75 +9,57 @@ services:
     container_name: nse-scraper
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.lite
     restart: unless-stopped
     
-    # Environment variables (override config.ini)
     environment:
       - TZ=Asia/Kolkata
       - PYTHONUNBUFFERED=1
-      # MongoDB Atlas connection (set in .env file)
       - MONGO_URI=${MONGO_URI:-mongodb://localhost:27017}
       - MONGO_DB=${MONGO_DB:-NSE_SCRAPER}
       - MONGO_DB_MASTER=${MONGO_DB_MASTER:-GETMASTERDATA}
-      # Server configuration
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=1020
       - DEBUG=false
-      # Scraping configuration
       - DATA_COLLECTION_INTERVAL=${DATA_COLLECTION_INTERVAL:-5}
       - COOKIE_REFRESH_INTERVAL=${COOKIE_REFRESH_INTERVAL:-60}
+      # Disable Chrome-based cookie fetching on low-memory VMs
+      - USE_SELENIUM=false
     
-    # Port mapping
     ports:
       - "1020:1020"
     
-    # Volume mounts
     volumes:
-      # Persist logs
       - ./Logs:/app/Logs
-      # Persist output files
       - ./output:/app/output
-      # Persist IPO data
       - ./ipo_data:/app/ipo_data
-      # Production config (create from config.ini)
       - ./config.production.ini:/app/config.ini:ro
-      # Cookie cache (optional - for faster restarts)
-      - nse_cookies:/app/.cookies
+      # Pre-generated cookies (upload from local machine)
+      - ./nse_cookies.json:/app/nse_cookies.json:ro
     
-    # Resource limits (adjust based on your VM - remove if causing issues)
-    # For 2 CPU VM: cpus: '1.5', memory: 3G
-    # For 4 CPU VM (Oracle Always Free): cpus: '3', memory: 20G
+    # Minimal resource limits for 1GB RAM VM
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 3G
+          cpus: '0.9'
+          memory: 800M
         reservations:
-          cpus: '0.5'
-          memory: 1G
+          cpus: '0.25'
+          memory: 256M
     
-    # Health check
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:1020/health"]
-      interval: 30s
+      interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     
-    # Logging configuration
     logging:
       driver: "json-file"
       options:
-        max-size: "100m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
-# Named volumes for persistent data
-volumes:
-  nse_cookies:
-    driver: local
-
-# Network configuration
 networks:
   default:
     name: nse-network

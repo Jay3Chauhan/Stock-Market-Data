@@ -6,12 +6,25 @@ from datetime import datetime
 from typing import Dict, Optional
 
 import requests
-import undetected_chromedriver as uc
+
+# Make Selenium/Chrome optional for low-memory VMs
+try:
+    import undetected_chromedriver as uc
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    uc = None
+    SELENIUM_AVAILABLE = False
+
 from Utils.logger import get_logger
 from Utils.config_reader import configure
 from Constant.general import NSE_GET_COOKIES_HEADERS, REQUIRED_NSE_COOKIES, NSE_COOKIE_ROTATION_URLS
 
-uc.Chrome.__del__ = lambda self: None
+if SELENIUM_AVAILABLE and uc:
+    uc.Chrome.__del__ = lambda self: None
+    
 logger = get_logger(__name__)
 
 class NSECookieService:
@@ -61,6 +74,10 @@ class NSECookieService:
     #         return None
 
     def get_driver(self):
+        if not SELENIUM_AVAILABLE:
+            logger.error("Selenium/Chrome not available - cannot create driver")
+            return None
+            
         logger.info("Launching undetected Chrome...")
 
         options = uc.ChromeOptions()
@@ -80,11 +97,20 @@ class NSECookieService:
         return uc.Chrome(options=options, use_subprocess=True)
 
     def get_nse_cookies(self) -> Optional[Dict[str, str]]:
+        # For low-memory VMs without Selenium, only use cached cookies
+        if not SELENIUM_AVAILABLE:
+            logger.warning("Selenium not available - using cached cookies only")
+            logger.info("To refresh cookies, run generate_cookies_local.py on your local machine")
+            return self.load_cookies_from_file()
+            
         try:
             target_url = random.choice(NSE_COOKIE_ROTATION_URLS)
             logger.info(f"Getting fresh NSE cookies using: {target_url}")
 
             driver = self.get_driver()
+            if not driver:
+                return self.load_cookies_from_file()
+                
             driver.get(target_url)
 
             # ✅ Wait until a key element exists instead of fixed sleep

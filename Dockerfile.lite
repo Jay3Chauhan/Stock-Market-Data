@@ -1,0 +1,52 @@
+# NSE Scraper - Lightweight Dockerfile for Low-Memory VMs
+# For Oracle E2.Micro (1GB RAM) - NO Chrome/Selenium
+
+FROM python:3.11-slim-bookworm
+
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    TZ=Asia/Kolkata
+
+# Set timezone to IST
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Install minimal system dependencies (NO Chrome)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create app directory
+WORKDIR /app
+
+# Copy lightweight requirements
+COPY requirements.lite.txt ./requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip cache purge
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p /app/Logs /app/output /app/ipo_data
+
+# Create non-root user
+RUN useradd -m -u 1000 nseuser && \
+    chown -R nseuser:nseuser /app
+
+USER nseuser
+
+# Health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:1020/health || exit 1
+
+EXPOSE 1020
+
+CMD ["python", "main.py"]

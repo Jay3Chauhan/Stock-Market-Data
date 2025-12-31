@@ -1,0 +1,50 @@
+# NSE Scraper - Minimal Requirements for Low-Memory VMs
+# NO Selenium/Chrome - uses pre-generated cookies
+
+# Core Web Framework
+fastapi==0.116.1
+uvicorn==0.35.0
+starlette==0.46.2
+python-multipart==0.0.20
+
+# HTTP Clients
+requests>=2.31.0
+aiohttp==3.12.14
+urllib3>=2.5.0
+
+# Web Scraping (NO Selenium)
+beautifulsoup4==4.13.4
+lxml==6.0.0
+
+# Database
+pymongo==4.14.0
+dnspython==2.7.0
+
+# Scheduling
+schedule==1.2.2
+
+# Data Processing
+pandas==2.3.1
+python-dateutil==2.9.0.post0
+
+# Configuration
+python-dotenv==1.1.1
+PyYAML==6.0.2
+
+# Logging
+colorlog==6.9.0
+
+# Utilities
+pytz==2025.2
+certifi>=2023.7.22
+
+# Async Support
+anyio==4.9.0
+aiofiles==24.1.0
+
+# Data Validation
+pydantic==2.11.7
+
+# String Matching
+fuzzywuzzy==0.18.0
+thefuzz==0.22.1
