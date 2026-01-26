@@ -47,6 +47,18 @@ class UserDatabase:
         try:
             collection = self.db_manager.mongo_db[self.collection_name]
             
+            # Drop old phone_number index if it exists (from when it was unique)
+            try:
+                existing_indexes = collection.index_information()
+                if 'phone_number_1' in existing_indexes:
+                    old_index = existing_indexes['phone_number_1']
+                    # Check if it's the old unique index
+                    if old_index.get('unique', False):
+                        logger.info("Dropping old unique phone_number index")
+                        collection.drop_index('phone_number_1')
+            except Exception as drop_error:
+                logger.warning(f"Could not drop old phone_number index: {str(drop_error)}")
+            
             # Create indexes
             collection.create_index([("uid", ASCENDING)], unique=True)
             collection.create_index([("email", ASCENDING)], unique=True, sparse=True)
