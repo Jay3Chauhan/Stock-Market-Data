@@ -31,14 +31,12 @@ router = APIRouter()
 class RegisterRequest(BaseModel):
     """Request model for user registration"""
     firebase_token: str = Field(..., description="Firebase ID token from client")
-    phone_number: Optional[str] = Field(None, description="Phone number in E.164 format (e.g., +919876543210)")
     fcm_token: Optional[str] = Field(None, description="FCM device token for push notifications")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "firebase_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...",
-                "phone_number": "+919876543210",
                 "fcm_token": "fcm_device_token_here"
             }
         }
@@ -113,7 +111,7 @@ async def register(request: RegisterRequest):
     Register a new user with Firebase authentication.
     
     **Workflow:**
-    1. Client authenticates with Firebase (phone/email/Google)
+    1. Client authenticates with Firebase (email/password or Google)
     2. Client sends Firebase ID token to this endpoint
     3. Backend verifies token and creates user in MongoDB
     4. FCM token is stored for push notifications
@@ -126,7 +124,6 @@ async def register(request: RegisterRequest):
         controller = UserController()
         result = await controller.register_user(
             firebase_token=request.firebase_token,
-            phone_number=request.phone_number,
             fcm_token=request.fcm_token
         )
         

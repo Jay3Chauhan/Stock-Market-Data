@@ -49,7 +49,6 @@ class UserDatabase:
             
             # Create indexes
             collection.create_index([("uid", ASCENDING)], unique=True)
-            collection.create_index([("phone_number", ASCENDING)], unique=True, sparse=True)
             collection.create_index([("email", ASCENDING)], unique=True, sparse=True)
             collection.create_index([("created_at", DESCENDING)])
             collection.create_index([("last_login", DESCENDING)])
@@ -62,7 +61,6 @@ class UserDatabase:
     async def create_user(
         self,
         uid: str,
-        phone_number: Optional[str] = None,
         email: Optional[str] = None,
         display_name: Optional[str] = None,
         photo_url: Optional[str] = None,
@@ -74,7 +72,6 @@ class UserDatabase:
         
         Args:
             uid: Firebase user UID (required)
-            phone_number: Phone number in E.164 format
             email: Email address
             display_name: User's display name
             photo_url: Profile photo URL
@@ -99,7 +96,6 @@ class UserDatabase:
             
             user_doc = {
                 "uid": uid,
-                "phone_number": phone_number,
                 "email": email,
                 "display_name": display_name,
                 "photo_url": photo_url,
@@ -148,31 +144,6 @@ class UserDatabase:
             
         except Exception as e:
             logger.error(f"Error getting user by UID: {str(e)}")
-            return None
-    
-    async def get_user_by_phone(self, phone_number: str) -> Optional[Dict[str, Any]]:
-        """
-        Get user by phone number.
-        
-        Args:
-            phone_number: Phone number in E.164 format
-            
-        Returns:
-            dict: User document if found
-            None: If user not found
-        """
-        try:
-            collection = self.db_manager.mongo_db[self.collection_name]
-            user = collection.find_one({"phone_number": phone_number})
-            
-            if user:
-                user['_id'] = str(user['_id'])
-                return user
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error getting user by phone: {str(e)}")
             return None
     
     async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:

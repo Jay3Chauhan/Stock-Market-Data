@@ -29,7 +29,6 @@ class UserController:
     async def register_user(
         self,
         firebase_token: str,
-        phone_number: Optional[str] = None,
         fcm_token: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -43,7 +42,6 @@ class UserController:
         
         Args:
             firebase_token: Firebase ID token
-            phone_number: Phone number (optional, can be from token)
             fcm_token: FCM device token for push notifications
             
         Returns:
@@ -84,12 +82,8 @@ class UserController:
                 }
             
             # Create new user
-            # Use phone from parameter or fallback to Firebase token
-            user_phone = phone_number or firebase_user.get('phone_number')
-            
             new_user = await self.user_db.create_user(
                 uid=uid,
-                phone_number=user_phone,
                 email=firebase_user.get('email'),
                 display_name=firebase_user.get('name'),
                 photo_url=firebase_user.get('picture'),
