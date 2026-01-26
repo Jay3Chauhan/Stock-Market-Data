@@ -319,23 +319,41 @@ async def update_fcm_token(
         )
 
 
-@router.post("/send-notification", tags=["Authentication"])
-async def send_push_notification(
-    request: SendNotificationRequest,
-    current_user: dict = Depends(get_current_user)
+@router.post("/send-notification", tags=["Notifications"])
+async def send_push_notification_test(
+    request: SendNotificationRequest
 ):
     """
-    Send push notification to a user (for testing or admin use).
+    Send push notification to a user (Testing/Development Only - No Auth Required).
     
-    **Authentication Required:**
-    - Add header: `Authorization: Bearer <firebase_token>`
+    **⚠️ WARNING: This endpoint has NO AUTHENTICATION for testing purposes!**
+    **Do not use in production without proper access control.**
     
     **Use Cases:**
-    - Testing push notifications
-    - Admin sending manual alerts
-    - Debugging FCM integration
+    - Testing push notifications during development
+    - Quick debugging of FCM integration
+    - Testing notification delivery without auth setup
     
-    **Note:** In production, add admin-only access control.
+    **How to Use:**
+    1. Register a user and note their `uid`
+    2. Call this endpoint with the `user_uid`
+    3. Check if notification arrives on device
+    
+    **Example Request:**
+    ```json
+    {
+      "user_uid": "szYcaytSN7hTDvDsDjIQ2ZXLr2S2",
+      "title": "Market Alert",
+      "body": "NIFTY crossed 22,000!",
+      "data": {
+        "type": "market_alert",
+        "symbol": "NIFTY",
+        "price": "22050"
+      }
+    }
+    ```
+    
+    **Production Alternative:** Use `/send-notification-auth` with Firebase token.
     """
     try:
         notification_service = PushNotificationService()
@@ -357,6 +375,74 @@ async def send_push_notification(
         return create_response(
             success=True,
             data={"message_id": result.get('message_id')},
+            message="Notification sent successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Send notification endpoint error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send notification"
+        )
+
+
+@router.post("/send-notification-auth", tags=["Notifications"])
+async def send_push_notification_authenticated(
+    request: SendNotificationRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Send push notification to a user (Production - Authentication Required).
+    
+    **Authentication Required:**
+    - Add header: `Authorization: Bearer <firebase_token>`
+    
+    **Use Cases:**
+    - Admin sending manual alerts to users
+    - Authenticated users sending notifications
+    - Production notification system
+    
+    **Security:**
+    - Only authenticated users can send notifications
+    - Consider adding admin-only check for production
+    
+    **Example Request:**
+    ```bash
+    curl -X POST https://api.jaychauhan.tech/auth/send-notification-auth \
+      -H "Authorization: Bearer YOUR_FIREBASE_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "user_uid": "target_user_uid",
+        "title": "Alert",
+        "body": "Message body"
+      }'
+    ```
+    """
+    try:
+        notification_service = PushNotificationService()
+        
+        result = await notification_service.send_to_user(
+            user_uid=request.user_uid,
+            title=request.title,
+            body=request.body,
+            data=request.data,
+            image_url=request.image_url
+        )
+        
+        if not result['success']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.get('error', 'Failed to send notification')
+            )
+        
+        return create_response(
+            success=True,
+            data={
+                "message_id": result.get('message_id'),
+                "sent_by": current_user.get('uid')
+            },
             message="Notification sent successfully"
         )
         
