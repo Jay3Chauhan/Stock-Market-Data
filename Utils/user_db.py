@@ -329,6 +329,37 @@ class UserDatabase:
             logger.error(f"Error listing users: {str(e)}")
             return []
     
+    async def get_all_users(self, is_active: Optional[bool] = True) -> List[Dict[str, Any]]:
+        """
+        Get all users (without pagination).
+        
+        Args:
+            is_active: Filter by active status (True = active only, None = all users)
+            
+        Returns:
+            list: List of all user documents
+        """
+        try:
+            collection = self.db_manager.mongo_db[self.collection_name]
+            
+            # Build query
+            query = {}
+            if is_active is not None:
+                query['is_active'] = is_active
+            
+            # Get all users
+            users = list(collection.find(query))
+            
+            # Convert ObjectId to string
+            for user in users:
+                user['_id'] = str(user['_id'])
+            
+            return users
+            
+        except Exception as e:
+            logger.error(f"Error getting all users: {str(e)}")
+            return []
+    
     async def count_users(self, is_active: Optional[bool] = None) -> int:
         """
         Count total users.

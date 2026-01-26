@@ -315,6 +315,88 @@ class PushNotificationService:
             logger.error(f"Error sending data message: {str(e)}")
             return {"success": False, "error": str(e)}
     
+    async def send_to_all_users(
+        self,
+        title: str,
+        body: str,
+        data: Optional[Dict[str, str]] = None,
+        image_url: Optional[str] = None,
+        batch_size: int = 500
+    ) -> Dict[str, Any]:
+        """
+        Send push notification to ALL users in the database.
+        
+        Args:
+            title: Notification title
+            body: Notification body
+            data: Optional data payload
+            image_url: Optional image URL
+            batch_size: Number of tokens to send per batch (FCM limit is 500)
+            
+        Returns:
+            dict: Results with success/failure counts
+        """
+        if not self.enabled or not self.fcm_enabled:
+            return {"success": False, "error": "Push notifications disabled"}
+        
+        try:
+            # Get all users with FCM tokens
+            all_users = await self.user_db.get_all_users()
+            
+            # Filter users with valid FCM tokens
+            fcm_tokens = [
+                user['fcm_token'] 
+                for user in all_users 
+                if user.get('fcm_token') and user.get('is_active', True)
+            ]
+            
+            if not fcm_tokens:
+                logger.warning("No users with FCM tokens found")
+                return {
+                    "success": False,
+                    "error": "No users with FCM tokens",
+                    "total_users": len(all_users),
+                    "users_with_tokens": 0
+                }
+            
+            logger.info(f"Sending broadcast to {len(fcm_tokens)} users")
+            
+            # Split tokens into batches (FCM limit is 500 per batch)
+            total_sent = 0
+            total_failed = 0
+            batch_results = []
+            
+            for i in range(0, len(fcm_tokens), batch_size):
+                batch = fcm_tokens[i:i + batch_size]
+                
+                result = await self.send_to_multiple_tokens(
+                    fcm_tokens=batch,
+                    title=title,
+                    body=body,
+                    data=data,
+                    image_url=image_url
+                )
+                
+                if result.get('success'):
+                    total_sent += result.get('success_count', 0)
+                    total_failed += result.get('failure_count', 0)
+                    batch_results.append(result)
+            
+            logger.info(f"Broadcast complete: {total_sent}/{len(fcm_tokens)} sent successfully")
+            
+            return {
+                "success": True,
+                "total_users": len(all_users),
+                "users_with_tokens": len(fcm_tokens),
+                "sent": total_sent,
+                "failed": total_failed,
+                "batches": len(batch_results)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error sending broadcast notification: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
     async def send_topic_notification(
         self,
         topic: str,

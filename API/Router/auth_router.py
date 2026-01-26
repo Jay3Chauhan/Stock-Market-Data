@@ -109,6 +109,27 @@ class SendNotificationRequest(BaseModel):
         }
 
 
+class BroadcastNotificationRequest(BaseModel):
+    """Request model for broadcasting notification to all users"""
+    title: str = Field(..., description="Notification title")
+    body: str = Field(..., description="Notification body")
+    data: Optional[dict] = Field(None, description="Additional data payload")
+    image_url: Optional[str] = Field(None, description="Optional image URL")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "title": "Market Update",
+                "body": "NIFTY 50 reached new all-time high!",
+                "data": {
+                    "type": "market_update",
+                    "symbol": "NIFTY",
+                    "price": "22500"
+                }
+            }
+        }
+
+
 # ==================== Endpoints ====================
 
 @router.post("/register", tags=["Authentication"])
@@ -453,6 +474,145 @@ async def send_push_notification_authenticated(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send notification"
+        )
+
+
+@router.post("/broadcast-notification", tags=["Notifications"])
+async def broadcast_notification_test(
+    request: BroadcastNotificationRequest
+):
+    """
+    Broadcast notification to ALL users (Testing/Development - No Auth).
+    
+    **⚠️ WARNING: Sends to ALL USERS! No authentication required for testing.**
+    
+    **Use Cases:**
+    - Testing broadcast functionality
+    - App-wide announcements during testing
+    - Market updates to all users
+    
+    **Example:**
+    ```json
+    {
+      "title": "Market Update",
+      "body": "NIFTY 50 reached 22,500!",
+      "data": {
+        "type": "market_update",
+        "symbol": "NIFTY",
+        "price": "22500"
+      }
+    }
+    ```
+    
+    **Response includes:**
+    - Total users in database
+    - Users with FCM tokens
+    - Successfully sent count
+    - Failed count
+    """
+    try:
+        notification_service = PushNotificationService()
+        
+        result = await notification_service.send_to_all_users(
+            title=request.title,
+            body=request.body,
+            data=request.data,
+            image_url=request.image_url
+        )
+        
+        if not result.get('success'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.get('error', 'Failed to send broadcast')
+            )
+        
+        return create_response(
+            success=True,
+            data=result,
+            message=f"Broadcast sent to {result.get('sent', 0)} users"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Broadcast notification endpoint error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send broadcast notification"
+        )
+
+
+@router.post("/broadcast-notification-auth", tags=["Notifications"])
+async def broadcast_notification_authenticated(
+    request: BroadcastNotificationRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Broadcast notification to ALL users (Production - Authentication Required).
+    
+    **Authentication Required:**
+    - Add header: `Authorization: Bearer <firebase_token>`
+    
+    **⚠️ WARNING: Sends to ALL USERS!**
+    
+    **Use Cases:**
+    - Admin sending app-wide announcements
+    - Critical market updates
+    - System notifications
+    
+    **Security:**
+    - Requires authentication
+    - Consider adding admin-only check
+    - Track who sent the broadcast
+    
+    **Example:**
+    ```bash
+    curl -X POST https://api.jaychauhan.tech/auth/broadcast-notification-auth \
+      -H "Authorization: Bearer YOUR_FIREBASE_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "title": "Market Update",
+        "body": "Important announcement",
+        "data": {"type": "announcement"}
+      }'
+    ```
+    """
+    try:
+        notification_service = PushNotificationService()
+        
+        result = await notification_service.send_to_all_users(
+            title=request.title,
+            body=request.body,
+            data=request.data,
+            image_url=request.image_url
+        )
+        
+        if not result.get('success'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.get('error', 'Failed to send broadcast')
+            )
+        
+        # Log who sent the broadcast
+        logger.info(f"Broadcast sent by {current_user.get('uid')}: {result.get('sent')} users")
+        
+        return create_response(
+            success=True,
+            data={
+                **result,
+                "sent_by": current_user.get('uid'),
+                "sent_by_email": current_user.get('email')
+            },
+            message=f"Broadcast sent to {result.get('sent', 0)} users"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Broadcast notification endpoint error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send broadcast notification"
         )
 
 
