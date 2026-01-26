@@ -41,3 +41,7 @@ test/output/investorgain_ipo_data_v1.json
 test/output/zerodha_investorgain_matched_ipos.json
 /nse_cookies.json
 *nse_cookies.json
+
+# Firebase Admin SDK (contains sensitive credentials)
+firebase-admin-sdk.json
+*firebase-admin-sdk*.json

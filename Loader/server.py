@@ -32,6 +32,7 @@ from API.Router import scanx_scrap_stocks_data_by_symbol_router
 from API.Router import scanx_stock_data_getter_router
 from API.Router import nse_market_data_router
 from API.Router import ipo_data_router
+from API.Router import auth_router
 
 logger = get_logger(__name__)
 
@@ -118,6 +119,10 @@ All endpoints return standardized responses:
                 "description": "Corporate events, announcements, and actions for specific stocks"
             },
             {
+                "name": "Authentication",
+                "description": "Firebase authentication, user management, and push notifications. Protect routes by adding `Authorization: Bearer <firebase_token>` header."
+            },
+            {
                 "name": "System",
                 "description": "API health check and system status"
             },
@@ -201,6 +206,13 @@ def apiserver() -> FastAPI:
         stoks_wise_event_data.router, 
         prefix='/stoks-wise-event-data', 
         tags=['Stockwise Event Data']
+    )
+    
+    # Authentication (Firebase + MongoDB)
+    app.include_router(
+        auth_router.router,
+        prefix='/auth',
+        tags=['Authentication']
     )
 
     # ==================== CORE ENDPOINTS ====================
