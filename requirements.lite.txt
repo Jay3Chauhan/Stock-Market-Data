@@ -22,6 +22,7 @@ dnspython==2.7.0
 
 # Firebase Authentication & Push Notifications
 firebase-admin==6.5.0
+colorama>=0.4.6
 
 # Scheduling
 schedule==1.2.2

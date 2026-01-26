@@ -5,6 +5,55 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from typing import Optional
 
+try:
+    from colorama import Fore, Back, Style, init as colorama_init
+    colorama_init(autoreset=True)
+    COLORAMA_AVAILABLE = True
+except ImportError:
+    COLORAMA_AVAILABLE = False
+    # Fallback if colorama not available
+    class Fore:
+        RED = GREEN = YELLOW = BLUE = CYAN = MAGENTA = WHITE = RESET = ''
+    class Back:
+        RED = GREEN = YELLOW = BLUE = CYAN = MAGENTA = WHITE = RESET = ''
+    class Style:
+        BRIGHT = DIM = NORMAL = RESET_ALL = ''
+
+
+class ColoredFormatter(logging.Formatter):
+    """Custom formatter with colors for different log levels"""
+    
+    # Color scheme for log levels
+    COLORS = {
+        'DEBUG': Fore.CYAN,
+        'INFO': Fore.GREEN,
+        'WARNING': Fore.YELLOW,
+        'ERROR': Fore.RED,
+        'CRITICAL': Fore.RED + Style.BRIGHT,
+    }
+    
+    # Special colors for specific patterns
+    API_COLOR = Fore.BLUE + Style.BRIGHT
+    DB_COLOR = Fore.MAGENTA
+    AUTH_COLOR = Fore.CYAN + Style.BRIGHT
+    
+    def format(self, record):
+        # Add color to level name
+        if COLORAMA_AVAILABLE:
+            levelname_color = self.COLORS.get(record.levelname, '')
+            record.levelname = f"{levelname_color}{record.levelname}{Style.RESET_ALL}"
+            
+            # Color specific log types
+            if 'API' in record.name or 'Router' in record.name or 'Controller' in record.name:
+                record.name = f"{self.API_COLOR}{record.name}{Style.RESET_ALL}"
+            elif 'db' in record.name.lower() or 'mongo' in record.name.lower():
+                record.name = f"{self.DB_COLOR}{record.name}{Style.RESET_ALL}"
+            elif 'auth' in record.name.lower() or 'firebase' in record.name.lower():
+                record.name = f"{self.AUTH_COLOR}{record.name}{Style.RESET_ALL}"
+        
+        return super().format(record)
+
+
 class NSELogger:
     _loggers = {}
     
@@ -40,21 +89,25 @@ class NSELogger:
         # Create new logger
         logger = logging.getLogger(name)
         logger.setLevel(self.log_level)
+        logger.propagate = False  # Prevent duplicate logs to root logger
         
         # Prevent duplicate handlers
         if logger.handlers:
             return logger
         
-        # Create formatter
-        formatter = logging.Formatter(self.log_format, self.date_format)
+        # Create colored formatter for console
+        colored_formatter = ColoredFormatter(self.log_format, self.date_format)
         
-        # Console handler
+        # Create plain formatter for file (no colors in files)
+        plain_formatter = logging.Formatter(self.log_format, self.date_format)
+        
+        # Console handler with colors
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(self.log_level)
-        console_handler.setFormatter(formatter)
+        console_handler.setFormatter(colored_formatter)
         logger.addHandler(console_handler)
         
-        # File handler with rotation
+        # File handler with rotation (no colors)
         log_filename = os.path.join(self.log_dir, f'{name}.log')
         file_handler = RotatingFileHandler(
             log_filename,
@@ -62,10 +115,10 @@ class NSELogger:
             backupCount=self.backup_count
         )
         file_handler.setLevel(self.log_level)
-        file_handler.setFormatter(formatter)
+        file_handler.setFormatter(plain_formatter)
         logger.addHandler(file_handler)
         
-        # Error file handler (separate file for errors)
+        # Error file handler (separate file for errors, no colors)
         error_log_filename = os.path.join(self.log_dir, f'{name}_error.log')
         error_file_handler = RotatingFileHandler(
             error_log_filename,
@@ -73,7 +126,7 @@ class NSELogger:
             backupCount=self.backup_count
         )
         error_file_handler.setLevel(logging.ERROR)
-        error_file_handler.setFormatter(formatter)
+        error_file_handler.setFormatter(plain_formatter)
         logger.addHandler(error_file_handler)
         
         # Store logger
