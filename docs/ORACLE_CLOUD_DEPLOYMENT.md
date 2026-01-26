@@ -1,447 +1,357 @@
-# NSE Scraper - Oracle Cloud Free Tier Deployment Guide
+# NSE Scraper — Oracle Cloud Always Free Runbook
 
-## 🆓 Complete Free Hosting Setup
+This is the operational runbook for deploying and running this repo on Oracle Cloud Always Free with MongoDB Atlas (free tier).
 
-This guide covers hosting the NSE Scraper with **$0/month** cost using:
-- **Oracle Cloud Always Free VM** - 24GB RAM ARM instance (lifetime free)
-- **MongoDB Atlas Free Tier** - 512MB cloud database (lifetime free)
-- **Docker** - Container deployment for easy management
+## Deployment profiles
 
----
+Choose one:
 
-## 📋 Prerequisites
+1) Micro VM (1 OCPU / ~1GB RAM)
+- Use: `docker-compose.lite.yml` + `Dockerfile.lite`
+- No Chrome/Selenium required (cookie acquisition is HTTP-based; Selenium is disabled in lite)
 
-1. **Oracle Cloud Account** - Sign up at [cloud.oracle.com](https://cloud.oracle.com)
-2. **MongoDB Atlas Account** - Sign up at [mongodb.com/atlas](https://www.mongodb.com/atlas)
-3. **Basic Linux knowledge** - SSH, terminal commands
+2) Larger VM (optional)
+- Use: `docker-compose.prod.yml`
 
----
+## What runs where
 
-## 🗄️ Step 1: Setup MongoDB Atlas (Free Tier)
-
-### 1.1 Create MongoDB Atlas Account
-1. Go to [mongodb.com/atlas](https://www.mongodb.com/atlas)
-2. Sign up with email or Google account
-3. Choose **FREE** tier (M0 Sandbox)
-
-### 1.2 Create Free Cluster
-1. Click **"Build a Database"**
-2. Select **M0 FREE** tier (512MB storage, shared RAM)
-3. Choose provider: **AWS** or **GCP** (closest region to India for low latency)
-4. Cluster name: `nse-scraper-cluster`
-5. Click **Create Cluster** (takes 3-5 minutes)
-
-### 1.3 Configure Database Access
-1. Go to **Database Access** → **Add New Database User**
-2. Authentication: Password
-   - Username: `nse_scraper_user`
-   - Password: Generate a strong password (save it!)
-3. Database User Privileges: **Read and write to any database**
-4. Click **Add User**
-
-### 1.4 Configure Network Access
-1. Go to **Network Access** → **Add IP Address**
-2. For initial setup: Click **"Allow Access from Anywhere"** (0.0.0.0/0)
-   - Later, restrict to your Oracle Cloud VM IP for security
-3. Click **Confirm**
-
-### 1.5 Get Connection String
-1. Go to **Database** → Click **Connect**
-2. Choose **"Connect your application"**
-3. Driver: Python, Version: 3.12 or later
-4. Copy the connection string:
-   ```
-   mongodb+srv://nse_scraper_user:<password>@nse-scraper-cluster.xxxxx.mongodb.net/?retryWrites=true&w=majority
-   ```
-5. Replace `<password>` with your actual password
+- FastAPI server: `http://<VM_PUBLIC_IP>:1020`
+  - Health: `/health`
+  - Swagger UI: `/docs`
+- Schedulers (cron jobs): runs inside the same container process (see `Services/cron_jobs.py`)
+- Database: MongoDB Atlas (recommended for $0/month)
 
 ---
 
-## ☁️ Step 2: Setup Oracle Cloud Free VM
+## 1) MongoDB Atlas (free tier)
 
-### 2.1 Create Oracle Cloud Account
-1. Go to [cloud.oracle.com](https://cloud.oracle.com)
-2. Sign up for **Free Tier** (requires credit card for verification, won't be charged)
-3. Choose home region closest to you (Mumbai for India)
+1. Create an M0 cluster.
+2. Create a DB user (save username/password).
+3. Network Access: allow your VM IP. For quick testing you can temporarily allow `0.0.0.0/0`.
+4. Copy the SRV connection string.
 
-### 2.2 Create Always Free VM Instance
-1. Go to **Compute** → **Instances** → **Create Instance**
+### Important: `%` escaping in `config.ini`
 
-2. **Name**: `nse-scraper-server`
+This repo reads `config.ini` with Python `configparser`, which treats `%` specially.
 
-3. **Image and Shape**:
-   - Click **Edit**
-   - Image: **Oracle Linux 8** or **Ubuntu 22.04**
-   - Shape: Click **Change Shape**
-     - Instance type: **Ampere** (ARM)
-     - Shape: **VM.Standard.A1.Flex** ⭐ (Always Free)
-     - OCPUs: **4** (max free)
-     - Memory: **24 GB** (max free)
-   
-4. **Networking**:
-   - Create new VCN or use existing
-   - Assign public IPv4 address: **Yes**
+If your password contains special characters:
+- First URL-encode the password in the URI (example: `@` becomes `%40`).
+- Then, when you paste the URI into `config.ini`, escape every `%` as `%%`.
 
-5. **Add SSH Keys**:
-   - Generate key pair or paste your public key
-   - **IMPORTANT**: Download private key and save securely!
+Example:
+- URI encoding needs `%40`
+- In `config.ini` you must write `%%40`
 
-6. Click **Create** (takes 2-5 minutes)
+---
 
-### 2.3 Configure Security Rules (Firewall)
-1. Go to **Networking** → **Virtual Cloud Networks**
-2. Click your VCN → **Security Lists** → Default Security List
-3. Add **Ingress Rules**:
+## 2) Oracle Cloud VM setup
 
-| Stateless | Source | Protocol | Dest Port | Description |
-|-----------|--------|----------|-----------|-------------|
-| No | 0.0.0.0/0 | TCP | 22 | SSH |
-| No | 0.0.0.0/0 | TCP | 1020 | FastAPI Server |
-| No | 0.0.0.0/0 | TCP | 80 | HTTP (optional) |
-| No | 0.0.0.0/0 | TCP | 443 | HTTPS (optional) |
+### Required ports
 
-### 2.4 Connect to VM via SSH
-```bash
-# Linux/Mac
-ssh -i /path/to/private-key.key ubuntu@<YOUR_VM_PUBLIC_IP>
+Allow these inbound:
+- `22/tcp` for SSH
+- `1020/tcp` for the API (direct access, optional if using Nginx)
+- `80/tcp` for Nginx + Let’s Encrypt HTTP challenge
+- `443/tcp` for HTTPS
 
-# Windows (PowerShell)
-ssh -i C:\path\to\private-key.key ubuntu@<YOUR_VM_PUBLIC_IP>
+You must allow them in:
+- Oracle VCN Security List / NSG rules
+- VM firewall (Ubuntu `ufw`) if enabled
 
-# Windows (using PuTTY)
-# Convert .key to .ppk using PuTTYgen, then connect
+### Connect from Windows (PowerShell)
+
+```powershell
+ssh -i C:\path\to\your\private-key.key ubuntu@<VM_PUBLIC_IP>
 ```
 
 ---
 
-## 🐳 Step 3: Install Docker on Oracle Cloud VM
+## 2.1) Domain setup (recommended: `api.jaychauhan.tech`)
 
-### 3.1 Connect to VM and Update System
-```bash
-# SSH into your VM
-ssh -i your-key.key ubuntu@<VM_IP>
+Since `jaychauhan.tech` is already used for your portfolio (Render), host this project on a subdomain.
 
-# Update system
-sudo apt update && sudo apt upgrade -y
+1. Create a DNS **A record**:
+   - Name/Host: `api`
+   - Value: `<YOUR_ORACLE_VM_PUBLIC_IP>`
+   - TTL: default
+
+2. Wait for DNS to propagate.
+
+From your machine:
+
+```powershell
+nslookup api.jaychauhan.tech
 ```
 
-### 3.2 Install Docker
+---
+
+## 2.2) Nginx reverse proxy + HTTPS (Let’s Encrypt)
+
+Goal:
+- API base URL: `https://api.jaychauhan.tech`
+
+Nginx will terminate TLS and proxy to the container at `http://127.0.0.1:1020`.
+
+### Install Nginx
+
 ```bash
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+sudo apt update
+sudo apt install -y nginx
+sudo systemctl enable nginx
+sudo systemctl start nginx
+```
 
-# Add user to docker group
-sudo usermod -aG docker $USER
+### Create Nginx site
 
-# Start Docker service
+```bash
+sudo nano /etc/nginx/sites-available/stockmarket-api
+```
+
+Paste:
+
+```nginx
+server {
+  listen 80;
+  server_name api.jaychauhan.tech;
+
+  location / {
+    proxy_pass http://127.0.0.1:1020;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 60s;
+  }
+}
+```
+
+Enable the site:
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/stockmarket-api /etc/nginx/sites-enabled/stockmarket-api
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Install Certbot (HTTPS)
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d api.jaychauhan.tech
+```
+
+Verify:
+
+```bash
+curl -sS https://api.jaychauhan.tech/health
+```
+
+Swagger:
+- `https://api.jaychauhan.tech/docs`
+
+### Auto-renew check
+
+```bash
+sudo certbot renew --dry-run
+```
+
+---
+
+## 2.3) Important security notes (recommended)
+
+### Prefer not exposing `1020` publicly
+
+Once Nginx is working, restrict direct access to port `1020`:
+- Oracle Security List / NSG: remove inbound `1020/tcp`
+- Keep only `80/tcp` and `443/tcp` public
+
+### UFW (Ubuntu firewall)
+
+If you use `ufw`:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+sudo ufw status
+```
+
+---
+
+## 3) Install Docker (Ubuntu)
+
+```bash
+sudo apt update
+sudo apt install -y git docker.io docker-compose-plugin
 sudo systemctl enable docker
 sudo systemctl start docker
-
-# Logout and login again for group changes
-exit
-# SSH back in
+sudo usermod -aG docker $USER
 ```
 
-### 3.3 Install Docker Compose
-```bash
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-docker-compose --version
-```
+Log out and log back in after changing groups.
 
 ---
 
-## 📦 Step 4: Deploy NSE Scraper
+## 4) Deploy (micro VM / lite)
 
-### 4.1 Clone Repository
+### 4.1 Clone
+
 ```bash
-cd ~
-git clone https://github.com/anv-het/NSE-Scraper.git
+git clone <YOUR_REPO_URL>
 cd NSE-Scraper
 ```
 
-### 4.2 Create Production Configuration
+### 4.2 Configure `config.ini`
+
+`docker-compose.lite.yml` mounts `./config.ini` into the container.
+
+At minimum set:
+- MongoDB Atlas URIs
+- Any project-specific toggles you need (intervals, force-run, etc.)
+
+### 4.3 Start
+
 ```bash
-# Copy and edit config
-cp config.ini config.production.ini
-nano config.production.ini
+docker compose -f docker-compose.lite.yml up -d --build
 ```
 
-Update these values in `config.production.ini`:
-```ini
-[DATABASE]
-MONGO_URI = mongodb+srv://nse_scraper_user:YOUR_PASSWORD@nse-scraper-cluster.xxxxx.mongodb.net/
-MONGO_DB = NSE_SCRAPER
-MONGO_DB_MASTER = GETMASTERDATA
+### 4.4 Verify
 
-# Disable SQL Server if not needed
-SQL_SERVER_ENABLED = false
+On the VM:
 
-[SCRAPING]
-DATA_COLLECTION_INTERVAL = 5
-TIMEOUT = 30
-COOKIE_REFRESH_INTERVAL = 60
-
-[SERVER]
-HOST = 0.0.0.0
-PORT = 1020
-DEBUG = false
-```
-
-### 4.3 Deploy with Docker Compose
 ```bash
-# Build and start containers
-docker-compose -f docker-compose.prod.yml up -d --build
-
-# Check status
-docker-compose -f docker-compose.prod.yml ps
-
-# View logs
-docker-compose -f docker-compose.prod.yml logs -f
+curl -sS http://localhost:1020/health
 ```
 
-### 4.4 Verify Deployment
-```bash
-# Check if API is running
-curl http://localhost:1020/health
-
-# Check from outside (use your VM's public IP)
-curl http://<YOUR_VM_PUBLIC_IP>:1020/health
-```
+From your machine:
+- `http://<VM_PUBLIC_IP>:1020/health`
+- `http://<VM_PUBLIC_IP>:1020/docs`
 
 ---
 
-## 🔧 Step 5: Configure Systemd Service (Auto-start)
+## 5) Operations
 
-Create a systemd service so the scraper starts automatically on boot:
+### View container status
 
 ```bash
-sudo nano /etc/systemd/system/nse-scraper.service
-```
-
-Add this content:
-```ini
-[Unit]
-Description=NSE Scraper Docker Compose
-Requires=docker.service
-After=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=/home/ubuntu/NSE-Scraper
-ExecStart=/usr/local/bin/docker-compose -f docker-compose.prod.yml up -d
-ExecStop=/usr/local/bin/docker-compose -f docker-compose.prod.yml down
-TimeoutStartSec=0
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable the service:
-```bash
-sudo systemctl enable nse-scraper
-sudo systemctl start nse-scraper
-```
-
----
-
-## 🔒 Step 6: Security Best Practices
-
-### 6.1 Configure Firewall on VM
-```bash
-# Allow only necessary ports
-sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 1020 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-
-# Save iptables rules
-sudo apt install iptables-persistent -y
-sudo netfilter-persistent save
-```
-
-### 6.2 Restrict MongoDB Atlas Access
-After deployment, go to MongoDB Atlas:
-1. **Network Access** → Remove 0.0.0.0/0
-2. Add only your Oracle Cloud VM's public IP
-
-### 6.3 Setup HTTPS with Nginx (Optional but Recommended)
-```bash
-# Install Nginx
-sudo apt install nginx -y
-
-# Install Certbot for free SSL
-sudo apt install certbot python3-certbot-nginx -y
-
-# Get SSL certificate (requires domain name)
-sudo certbot --nginx -d yourdomain.com
-```
-
----
-
-## 📊 Step 7: Monitoring & Maintenance
-
-### 7.1 Check Application Status
-```bash
-# Container status
-docker-compose -f docker-compose.prod.yml ps
-
-# Application logs
-docker-compose -f docker-compose.prod.yml logs -f nse-scraper
-
-# Resource usage
+docker compose -f docker-compose.lite.yml ps
 docker stats
 ```
 
-### 7.2 MongoDB Atlas Monitoring
-1. Go to Atlas Dashboard → **Metrics**
-2. Monitor: Storage usage, Connections, Operations/sec
-3. Set up **Alerts** for storage approaching limit
+### Follow logs
 
-### 7.3 Useful Commands
 ```bash
-# Restart application
-docker-compose -f docker-compose.prod.yml restart
+docker compose -f docker-compose.lite.yml logs -f --tail=200
+```
 
-# Update application
-cd ~/NSE-Scraper
+### App file logs
+
+The repo writes file logs under `Logs/` (mounted from host).
+
+```bash
+ls -la Logs
+tail -f Logs/*.log
+```
+
+### Restart / stop
+
+```bash
+docker compose -f docker-compose.lite.yml restart
+docker compose -f docker-compose.lite.yml down
+```
+
+### Update to latest code
+
+```bash
 git pull
-docker-compose -f docker-compose.prod.yml up -d --build
-
-# View cron job logs
-docker-compose -f docker-compose.prod.yml logs -f | grep -i cron
-
-# Check disk space
-df -h
+docker compose -f docker-compose.lite.yml up -d --build
 ```
 
 ---
 
-## 💰 Cost Summary
+## 6) Cron jobs: how to confirm they run
 
-| Service | Tier | Cost | Limits |
-|---------|------|------|--------|
-| Oracle Cloud VM | Always Free | **$0/month** | 4 OCPUs, 24GB RAM, 200GB storage |
-| MongoDB Atlas | M0 Free | **$0/month** | 512MB storage, shared RAM |
-| Domain (optional) | Freenom/.tk | **$0/year** | Free domains available |
-| SSL Certificate | Let's Encrypt | **$0/year** | Auto-renew with Certbot |
+Cron scheduling is implemented in `Services/cron_jobs.py`.
 
-**Total Monthly Cost: $0** 🎉
+How to verify:
+- Check container logs for periodic job start/finish messages.
+- Check MongoDB collections update (most scrapers do delete-then-insert).
 
----
+### Market-hours gating
 
-## ⚠️ Free Tier Limitations
+By default, jobs may run only during market hours (IST weekdays 9:15–15:30).
 
-### Oracle Cloud Always Free
-- ✅ **No expiration** - truly lifetime free
-- ⚠️ Must use ARM (Ampere) instances for 24GB RAM
-- ⚠️ Idle instances may be reclaimed (keep active with cron jobs)
-- ⚠️ 10TB/month outbound data transfer
-
-### MongoDB Atlas Free Tier
-- ✅ **No expiration** - lifetime free
-- ⚠️ 512MB storage limit
-- ⚠️ Shared cluster (may have slower performance)
-- ⚠️ No backups on free tier
-
-### Preventing Oracle VM Reclamation
-Oracle may reclaim idle Always Free instances. Keep it active:
-```bash
-# Add to crontab to keep VM active
-crontab -e
-
-# Add this line (runs every hour)
-0 * * * * curl -s http://localhost:1020/health > /dev/null
-```
+If you need to test outside market hours, enable the project’s force-run flag (if present in your `config.ini`, as implemented in `Services/cron_jobs.py`) and restart the container.
 
 ---
 
-## 🚀 Quick Start Commands
+## 7) Manual refresh APIs
 
-```bash
-# 1. SSH to VM
-ssh -i key.pem ubuntu@<VM_IP>
+Swagger UI:
+- `http://<VM_PUBLIC_IP>:1020/docs`
 
-# 2. Clone and setup
-git clone https://github.com/anv-het/NSE-Scraper.git
-cd NSE-Scraper
-
-# 3. Configure
-cp config.ini config.production.ini
-nano config.production.ini  # Update MongoDB URI
-
-# 4. Deploy
-docker-compose -f docker-compose.prod.yml up -d --build
-
-# 5. Verify
-curl http://localhost:1020/health
-```
+Common endpoints:
+- NSE refresh: `POST /nse/refresh/all` and per-source refresh endpoints under `/nse/refresh/...`
+- IPO refresh: `POST /ipo/refresh/investorgain`, `POST /ipo/refresh/match-zerodha`, `POST /ipo/refresh/all`
 
 ---
 
-## 📞 Troubleshooting
+## 8) Cookies (no copy/paste)
 
-### Cannot connect to VM
-```bash
-# Check if VM is running in Oracle Console
-# Verify security list rules allow port 22
-# Check if correct private key is used
-```
+Cookie acquisition is handled in `Services/get_nse_cookies.py`.
 
-### API not accessible from outside
-```bash
-# Check iptables
-sudo iptables -L
+Lite deployment notes:
+- Selenium is disabled via env (`USE_SELENIUM=false`).
+- The server fetches NSE cookies using an HTTP-based flow and caches them.
+- The cache file is `nse_cookies.json` in the repo root (mounted into the container).
 
-# Check if container is running
-docker ps
-
-# Check Oracle Security List for port 1020
-```
-
-### MongoDB connection failed
-```bash
-# Test connection
-python -c "from pymongo import MongoClient; c = MongoClient('YOUR_URI'); print(c.list_database_names())"
-
-# Check Atlas Network Access includes VM IP
-# Verify username/password in connection string
-```
-
-### Container keeps restarting
-```bash
-# Check logs
-docker-compose -f docker-compose.prod.yml logs nse-scraper
-
-# Check if Chrome/Chromedriver works in container
-docker exec -it nse-scraper bash
-python -c "from Services.get_nse_cookies import get_nse_cookies; print(get_nse_cookies())"
-```
+If you see repeated 401/403 from NSE:
+- Confirm the VM’s IP isn’t blocked.
+- Confirm time zone is IST (`TZ=Asia/Kolkata`).
+- Review headers logic in `Utils/cookie_headers.py`.
 
 ---
 
-## 📁 File Structure for Deployment
+## 9) Troubleshooting
 
-```
-NSE-Scraper/
-├── Dockerfile                    # Docker build instructions
-├── docker-compose.prod.yml       # Production compose file
-├── config.production.ini         # Production configuration
-├── .dockerignore                 # Files to exclude from Docker
-├── scripts/
-│   ├── deploy.sh                 # Deployment script
-│   └── health_check.sh           # Health monitoring script
-└── ...
-```
+### API not reachable publicly
+
+1. On the VM: `curl http://localhost:1020/health`
+2. Ensure Oracle ingress allows `1020/tcp`.
+3. If `ufw` is enabled:
+   - `sudo ufw allow 1020/tcp`
+   - `sudo ufw status`
+
+### MongoDB Atlas connection fails
+
+- Confirm Atlas IP access list allows the VM.
+- Confirm `config.ini` has correct escaping (`%` must be `%%`).
+
+### Swagger “Failed to fetch”
+
+Use `http://<VM_PUBLIC_IP>:1020/docs` (not `localhost`). The OpenAPI server is configured to be relative so Swagger targets the same host.
 
 ---
 
-**Next Steps:**
-1. Create Oracle Cloud account
-2. Setup MongoDB Atlas free cluster
-3. Launch Oracle VM
-4. Deploy using this guide
+## 10) Codebase map
 
-Happy Hosting! 🚀
+- `main.py`: entrypoint (starts API + cron)
+- `Loader/server.py`: FastAPI app, router registration, `/health`, OpenAPI config
+- `Services/cron_jobs.py`: schedule definitions + job runners
+- `Services/get_nse_cookies.py`: NSE cookie acquisition + caching
+- `API/Controller/`: each scraper controller (request → format → DB)
+- `API/Router/`: FastAPI routes (including manual refresh endpoints)
+- `Utils/data_formatter.py`: transforms NSE JSON into Mongo-ready docs
+- `Utils/db.py`: MongoDB access patterns (collections, delete-then-insert)
+- `Constant/`: URLs and shared constants
+
+---
+
+## Appendix: prod compose (larger VM)
+
+If you later move to a bigger VM:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+

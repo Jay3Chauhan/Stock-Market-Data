@@ -32,8 +32,8 @@ services:
       - ./output:/app/output
       - ./ipo_data:/app/ipo_data
       - ./config.ini:/app/config.ini:ro
-      # Pre-generated cookies (upload from local machine)
-      - ./nse_cookies.json:/app/nse_cookies.json:ro
+      # NSE cookies cache (auto-managed by the server)
+      - ./nse_cookies.json:/app/nse_cookies.json
     
     # Minimal resource limits for 1GB RAM VM
     deploy:
