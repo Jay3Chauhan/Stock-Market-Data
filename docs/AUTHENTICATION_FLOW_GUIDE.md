@@ -75,9 +75,14 @@ Register a new user in the system after Firebase authentication.
      ```json
      {
        "firebase_token": "<firebase_id_token>",
-       "fcm_token": "<fcm_device_token>"  // Optional for push notifications
+       "fcm_token": "<fcm_device_token>",  // Optional for push notifications
+       "display_name": "John Doe",  // Optional, overrides Firebase name
+       "photo_url": "https://example.com/photo.jpg",  // Optional, overrides Firebase photo
+       "phone_number": "+919876543210"  // Optional, for display only (not for auth)
      }
      ```
+   
+   **Note**: All fields except `firebase_token` are optional. If you provide `display_name` or `photo_url`, they will override values from Firebase token. If not provided, values from Firebase will be used (if available).
 
 5. **Backend Response**
    - **Success (200)**:
@@ -91,6 +96,7 @@ Register a new user in the system after Firebase authentication.
            "email": "user@example.com",
            "display_name": "User Name",
            "photo_url": null,
+           "phone_number": "+919876543210",  // If provided
            "is_active": true,
            "created_at": "2026-01-26T10:30:00.000000+05:30",
            "last_login": "2026-01-26T10:30:00.000000+05:30"
@@ -115,9 +121,14 @@ Register a new user in the system after Firebase authentication.
 
 ### Important Notes
 - Firebase token must be fresh (obtained after successful Firebase auth)
-- FCM token is optional but recommended for push notifications
+- **All fields are optional** except `firebase_token`:
+  - `fcm_token`: Recommended for push notifications
+  - `display_name`: If provided, overrides Firebase name; otherwise uses Firebase name
+  - `photo_url`: If provided, overrides Firebase photo; otherwise uses Firebase photo
+  - `phone_number`: Optional, for display purposes only (NOT used for authentication)
 - Backend automatically creates user in MongoDB
 - If user already exists, backend returns existing user data with `is_new_user: false`
+- Phone number is stored as-is (no validation or formatting) - it's just a display field
 
 ---
 

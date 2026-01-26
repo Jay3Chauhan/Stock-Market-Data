@@ -32,12 +32,18 @@ class RegisterRequest(BaseModel):
     """Request model for user registration"""
     firebase_token: str = Field(..., description="Firebase ID token from client")
     fcm_token: Optional[str] = Field(None, description="FCM device token for push notifications")
+    display_name: Optional[str] = Field(None, description="User's display name (optional)")
+    photo_url: Optional[str] = Field(None, description="User's profile photo URL (optional)")
+    phone_number: Optional[str] = Field(None, description="User's phone number (optional, for display only)")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "firebase_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...",
-                "fcm_token": "fcm_device_token_here"
+                "fcm_token": "fcm_device_token_here",
+                "display_name": "John Doe",
+                "photo_url": "https://example.com/photo.jpg",
+                "phone_number": "+919876543210"
             }
         }
 
@@ -124,7 +130,10 @@ async def register(request: RegisterRequest):
         controller = UserController()
         result = await controller.register_user(
             firebase_token=request.firebase_token,
-            fcm_token=request.fcm_token
+            fcm_token=request.fcm_token,
+            display_name=request.display_name,
+            photo_url=request.photo_url,
+            phone_number=request.phone_number
         )
         
         if not result['success']:

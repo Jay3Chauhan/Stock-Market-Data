@@ -29,7 +29,10 @@ class UserController:
     async def register_user(
         self,
         firebase_token: str,
-        fcm_token: Optional[str] = None
+        fcm_token: Optional[str] = None,
+        display_name: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        phone_number: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Register a new user.
@@ -43,6 +46,9 @@ class UserController:
         Args:
             firebase_token: Firebase ID token
             fcm_token: FCM device token for push notifications
+            display_name: User's display name (optional, overrides Firebase value)
+            photo_url: User's profile photo URL (optional, overrides Firebase value)
+            phone_number: User's phone number (optional, for display purposes only)
             
         Returns:
             dict: Registration result with user info
@@ -82,11 +88,13 @@ class UserController:
                 }
             
             # Create new user
+            # Use provided values or fallback to Firebase token data
             new_user = await self.user_db.create_user(
                 uid=uid,
                 email=firebase_user.get('email'),
-                display_name=firebase_user.get('name'),
-                photo_url=firebase_user.get('picture'),
+                display_name=display_name or firebase_user.get('name'),
+                photo_url=photo_url or firebase_user.get('picture'),
+                phone_number=phone_number,
                 fcm_token=fcm_token
             )
             

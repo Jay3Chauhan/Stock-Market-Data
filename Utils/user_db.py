@@ -50,6 +50,7 @@ class UserDatabase:
             # Create indexes
             collection.create_index([("uid", ASCENDING)], unique=True)
             collection.create_index([("email", ASCENDING)], unique=True, sparse=True)
+            collection.create_index([("phone_number", ASCENDING)], sparse=True)  # Not unique - optional field
             collection.create_index([("created_at", DESCENDING)])
             collection.create_index([("last_login", DESCENDING)])
             
@@ -64,6 +65,7 @@ class UserDatabase:
         email: Optional[str] = None,
         display_name: Optional[str] = None,
         photo_url: Optional[str] = None,
+        phone_number: Optional[str] = None,
         fcm_token: Optional[str] = None,
         metadata: Optional[Dict] = None
     ) -> Optional[Dict[str, Any]]:
@@ -75,6 +77,7 @@ class UserDatabase:
             email: Email address
             display_name: User's display name
             photo_url: Profile photo URL
+            phone_number: Phone number (optional, for display only, not used for auth)
             fcm_token: FCM device token
             metadata: Additional metadata
             
@@ -99,6 +102,7 @@ class UserDatabase:
                 "email": email,
                 "display_name": display_name,
                 "photo_url": photo_url,
+                "phone_number": phone_number,
                 "fcm_token": fcm_token,
                 "is_active": True,
                 "created_at": current_time,
